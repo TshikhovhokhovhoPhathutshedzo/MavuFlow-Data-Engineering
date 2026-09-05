@@ -115,3 +115,4 @@ Commit #113 | Meme: In case of fire: git commit, git push, leave building.
 Commit #114 | Meme: My code doesn't work, I have no idea why. My code works, I have no idea why.
 Commit #115 | Meme: Why do Java developers wear glasses? Because they don't C#.
 Commit #116 | Meme: 99 little bugs in the code. Take one down, patch it around. 127 little bugs in the code.
+Commit #117 | Meme: To understand recursion, you must first understand recursion.
