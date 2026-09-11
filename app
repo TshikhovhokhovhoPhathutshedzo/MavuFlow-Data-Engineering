@@ -13,3 +13,4 @@ Commit #11 | Meme: 99 little bugs in the code. Take one down, patch it around. 1
 Commit #12 | Meme: Why do Java developers wear glasses? Because they don't C#.
 Commit #13 | Meme: Works on my machine! ¯\_(ツ)_/¯
 Commit #14 | Meme: Why do Java developers wear glasses? Because they don't C#.
+Commit #15 | Meme: A SQL query walks into a bar, walks up to two tables and asks: 'Can I join you?'
