@@ -86,3 +86,4 @@ Commit #84 | Meme: In case of fire: git commit, git push, leave building.
 Commit #85 | Meme: git commit -m 'fixed stuff' (narrator: it was not fixed)
 Commit #86 | Meme: Deleting code is better than writing code.
 Commit #87 | Meme: Deleting code is better than writing code.
+Commit #88 | Meme: There's no place like 127.0.0.1
