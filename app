@@ -19,3 +19,4 @@ Commit #17 | Meme: Programming is 10% writing code and 90% understanding why it'
 Commit #18 | Meme: In case of fire: git commit, git push, leave building.
 Commit #19 | Meme: Real programmers count from 0.
 Commit #20 | Meme: Works on my machine! ¯\_(ツ)_/¯
+Commit #21 | Meme: To understand recursion, you must first understand recursion.
