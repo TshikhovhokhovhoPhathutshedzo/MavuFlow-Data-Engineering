@@ -16,3 +16,4 @@ Commit #14 | Meme: Why do Java developers wear glasses? Because they don't C#.
 Commit #15 | Meme: A SQL query walks into a bar, walks up to two tables and asks: 'Can I join you?'
 Commit #16 | Meme: A SQL query walks into a bar, walks up to two tables and asks: 'Can I join you?'
 Commit #17 | Meme: Programming is 10% writing code and 90% understanding why it's not working.
+Commit #18 | Meme: In case of fire: git commit, git push, leave building.
