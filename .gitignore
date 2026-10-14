@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+coverage/
+.npm/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Data and generated files
+storage/users/*
+storage/temporary/*
+backend/storage/
+*.db
+!storage/users/.gitkeep
+!storage/temporary/.gitkeep
+!storage/system/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
