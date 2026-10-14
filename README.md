@@ -36,8 +36,7 @@ MavuFlow Studio combines dataset uploads, data quality insights, transformations
 
 The screenshots below show the main application workflows. Account identifiers have been removed from these copies.
 
-<details>
-<summary>Open the 13-screen MavuFlow gallery</summary>
+<p><strong>Full application gallery</strong></p>
 
 <p align="center">
     <img src="docs/screenshots/login.png" width="48%" alt="MavuFlow sign-in screen">
@@ -79,8 +78,6 @@ The screenshots below show the main application workflows. Account identifiers h
     <img src="docs/screenshots/settings.png" width="48%" alt="MavuFlow account settings">
 </p>
 <p align="center"><sub>Account settings</sub></p>
-
-</details>
 
 ## Technology
 
