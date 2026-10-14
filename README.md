@@ -22,6 +22,66 @@ MavuFlow Studio combines dataset uploads, data quality insights, transformations
 | **Quality and exports** | Review dataset analytics and quality reports, then export results. |
 | **Accounts** | Authenticated workspaces with user-scoped project and dataset access. |
 
+## Feature Guide
+
+- **Accounts and projects:** Register or sign in, then create projects that keep related datasets organized.
+- **Dataset uploads:** Import CSV or Excel `.xlsx` files. MavuFlow records file metadata and provides dataset previews and profiles.
+- **Cleaning and transformations:** Apply supported cleaning operations, rename or derive columns, and inspect the resulting preview.
+- **Code Lab:** Write supported pandas and NumPy expressions against `df`. Run a preview without changing the stored dataset, then choose **Save changes** to create a new version. Code is not persisted, and arbitrary Python, imports, and file or network access are not allowed.
+- **Pipeline Builder:** Save ordered transformation steps and run them against a selected dataset.
+- **Analytics and quality:** Inspect dataset dimensions, missing values, duplicates, and quality scores.
+- **History and exports:** Review saved dataset versions and download processed data in supported formats.
+
+## Screenshots
+
+The screenshots below show the main application workflows. Account identifiers have been removed from these copies.
+
+<details>
+<summary>Open the 13-screen MavuFlow gallery</summary>
+
+<p align="center">
+    <img src="docs/screenshots/login.png" width="48%" alt="MavuFlow sign-in screen">
+    <img src="docs/screenshots/create-account.png" width="48%" alt="MavuFlow account registration screen">
+</p>
+<p align="center"><sub>Sign in and create an account</sub></p>
+
+<p align="center">
+    <img src="docs/screenshots/dashboard.png" width="48%" alt="MavuFlow operations dashboard">
+    <img src="docs/screenshots/projects.png" width="48%" alt="MavuFlow project workspace">
+</p>
+<p align="center"><sub>Dashboard overview and project management</sub></p>
+
+<p align="center">
+    <img src="docs/screenshots/datasets.png" width="48%" alt="MavuFlow dataset upload and list">
+    <img src="docs/screenshots/processing-history.png" width="48%" alt="MavuFlow processing history">
+</p>
+<p align="center"><sub>Upload datasets and review their version history</sub></p>
+
+<p align="center">
+    <img src="docs/screenshots/data-cleaning.png" width="48%" alt="MavuFlow data cleaning screen">
+    <img src="docs/screenshots/transformations.png" width="48%" alt="MavuFlow transformation screen">
+</p>
+<p align="center"><sub>Clean and transform dataset columns</sub></p>
+
+<p align="center">
+    <img src="docs/screenshots/pipeline-builder.png" width="48%" alt="MavuFlow pipeline builder">
+    <img src="docs/screenshots/code-lab.png" width="48%" alt="MavuFlow Code Lab editor">
+</p>
+<p align="center"><sub>Build repeatable pipelines or write manual data operations</sub></p>
+
+<p align="center">
+    <img src="docs/screenshots/analytics.png" width="48%" alt="MavuFlow dataset analytics">
+    <img src="docs/screenshots/file-manager.png" width="48%" alt="MavuFlow file manager">
+</p>
+<p align="center"><sub>Review quality analytics and manage exported files</sub></p>
+
+<p align="center">
+    <img src="docs/screenshots/settings.png" width="48%" alt="MavuFlow account settings">
+</p>
+<p align="center"><sub>Account settings</sub></p>
+
+</details>
+
 ## Technology
 
 | Layer | Stack |
@@ -110,3 +170,7 @@ Supabase can provide PostgreSQL and object storage, but it does not host this Fa
 ## CI
 
 GitHub Actions runs the backend pytest suite and frontend production build on pushes to `main` and pull requests. See the [CI workflow](.github/workflows/ci.yml).
+
+## Project Status and Contributions
+
+MavuFlow Studio is a project under construction and has not yet been deployed. Contributions, feedback, and improvements are more than welcome; please open an issue or pull request to get involved.
