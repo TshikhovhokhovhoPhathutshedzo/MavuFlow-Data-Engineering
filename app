@@ -31,3 +31,4 @@ Commit #29 | Meme: A QA engineer walks into a bar. Orders a beer. Orders 0 beers
 Commit #30 | Meme: Software and cathedrals are much the same – first we build them, then we pray.
 Commit #31 | Meme: Software and cathedrals are much the same – first we build them, then we pray.
 Commit #32 | Meme: Why do Java developers wear glasses? Because they don't C#.
+Commit #33 | Meme: There are 10 types of people: those who understand binary, and those who don't.
