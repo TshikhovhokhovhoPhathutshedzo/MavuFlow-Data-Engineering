@@ -143,3 +143,4 @@ Commit #141 | Meme: A SQL query walks into a bar, walks up to two tables and ask
 Commit #142 | Meme: git commit -m 'fixed stuff' (narrator: it was not fixed)
 Commit #143 | Meme: Hide and seek champion since 1958: ';' in C/C++
 Commit #144 | Meme: It's not a bug, it's an undocumented feature.
+Commit #145 | Meme: To understand recursion, you must first understand recursion.
