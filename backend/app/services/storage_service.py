@@ -1,5 +1,6 @@
 import hashlib
 import io
+import logging
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -8,6 +9,9 @@ import pandas as pd
 from fastapi import UploadFile
 
 from app.core.config import settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class StorageService:
@@ -38,7 +42,11 @@ class StorageService:
 
         safe_name = f"original{suffix}"
         target_path = storage_dir / safe_name
-        target_path.write_bytes(file_bytes)
+        try:
+            target_path.write_bytes(file_bytes)
+        except (IOError, OSError) as e:
+            logger.error(f"Failed to save file to {target_path}: {e}")
+            raise ValueError(f"Failed to save file. Please check server logs for details. Error: {e}") from e
 
         checksum = hashlib.sha256(file_bytes).hexdigest()
         metadata = self._read_dataset_metadata(file_bytes, suffix)
@@ -349,27 +357,34 @@ class StorageService:
         return report
 
     def _read_dataset_metadata(self, file_bytes: bytes, suffix: str) -> dict[str, Any]:
-        if suffix == ".csv":
-            df = pd.read_csv(io.BytesIO(file_bytes), nrows=100)
-            return {
-                "row_count": max(int(len(df)), 0),
-                "column_count": int(len(df.columns)),
-                "mime_type": "text/csv",
-            }
-        if suffix == ".json":
-            data = pd.read_json(io.BytesIO(file_bytes))
-            return {
-                "row_count": int(len(data)),
-                "column_count": int(len(data.columns)),
-                "mime_type": "application/json",
-            }
-        if suffix == ".xlsx":
-            df = pd.read_excel(io.BytesIO(file_bytes), nrows=100)
-            return {
-                "row_count": int(len(df)),
-                "column_count": int(len(df.columns)),
-                "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            }
+        try:
+            if suffix == ".csv":
+                df = pd.read_csv(io.BytesIO(file_bytes), nrows=100)
+                return {
+                    "row_count": max(int(len(df)), 0),
+                    "column_count": int(len(df.columns)),
+                    "mime_type": "text/csv",
+                }
+            if suffix == ".json":
+                data = pd.read_json(io.BytesIO(file_bytes))
+                return {
+                    "row_count": int(len(data)),
+                    "column_count": int(len(data.columns)),
+                    "mime_type": "application/json",
+                }
+            if suffix == ".xlsx":
+                df = pd.read_excel(io.BytesIO(file_bytes), nrows=100)
+                return {
+                    "row_count": int(len(df)),
+                    "column_count": int(len(df.columns)),
+                    "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                }
+        except pd.errors.ParserError as e:
+            logger.error(f"Error parsing {suffix} file: {e}")
+            raise ValueError(f"Could not parse the {suffix} file. Please check its format and try again. Error: {e}") from e
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while reading {suffix} file metadata: {e}")
+            raise ValueError(f"An unexpected error occurred while processing the {suffix} file. Error: {e}") from e
 
         raise ValueError("Unsupported file type")
 
