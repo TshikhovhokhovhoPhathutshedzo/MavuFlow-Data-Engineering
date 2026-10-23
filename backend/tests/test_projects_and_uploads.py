@@ -60,6 +60,53 @@ def test_create_project_and_upload_dataset() -> None:
     assert any(item["id"] == dataset["id"] for item in list_response.json())
 
 
+def test_semicolon_csv_with_commas_in_cell_uploads_and_previews() -> None:
+    email = f"semicolon_{uuid.uuid4().hex[:8]}@example.com"
+    auth_token = register_user(email)
+    headers = {"Authorization": f"Bearer {auth_token}"}
+    project = client.post("/api/v1/projects", headers=headers, json={"name": "Semicolon Import"}).json()
+    csv_content = (
+        b"id;name;score;note\n"
+        b"1;Alice;10;ok\n"
+        b"2;Bob;20;FORMULA= ASSIGNMENT*0,15 +QA*0,15 + TA*0,7\n"
+    )
+
+    upload_response = client.post(
+        "/api/v1/datasets/upload",
+        headers=headers,
+        data={"project_id": project["id"]},
+        files={"file": ("grades.csv", csv_content, "text/csv")},
+    )
+
+    assert upload_response.status_code == 201, upload_response.text
+    dataset = upload_response.json()
+    assert dataset["row_count"] == 2
+    preview_response = client.get(f"/api/v1/datasets/{dataset['id']}/preview", headers=headers)
+    assert preview_response.status_code == 200, preview_response.text
+    assert preview_response.json()["columns"] == ["id", "name", "score", "note"]
+    assert preview_response.json()["rows"][1]["note"] == "FORMULA= ASSIGNMENT*0,15 +QA*0,15 + TA*0,7"
+
+
+def test_csv_blank_headers_are_not_exposed_as_dataset_columns() -> None:
+    email = f"blank_headers_{uuid.uuid4().hex[:8]}@example.com"
+    auth_token = register_user(email)
+    headers = {"Authorization": f"Bearer {auth_token}"}
+    project = client.post("/api/v1/projects", headers=headers, json={"name": "Blank Header Import"}).json()
+
+    upload_response = client.post(
+        "/api/v1/datasets/upload",
+        headers=headers,
+        data={"project_id": project["id"]},
+        files={"file": ("blank_headers.csv", b"id,name,,\n1,Alice,teacher note,\n2,Bob,,\n", "text/csv")},
+    )
+
+    assert upload_response.status_code == 201, upload_response.text
+    assert upload_response.json()["column_count"] == 2
+    preview_response = client.get(f"/api/v1/datasets/{upload_response.json()['id']}/preview", headers=headers)
+    assert preview_response.status_code == 200, preview_response.text
+    assert preview_response.json()["columns"] == ["id", "name"]
+
+
 def test_dataset_ownership_is_enforced() -> None:
     owner_email = f"owner_{uuid.uuid4().hex[:8]}@example.com"
     viewer_email = f"viewer_{uuid.uuid4().hex[:8]}@example.com"

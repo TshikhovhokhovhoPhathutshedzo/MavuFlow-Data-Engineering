@@ -14,6 +14,13 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+def read_csv_dataset(source: Any, **options: Any) -> pd.DataFrame:
+    dataframe = pd.read_csv(source, sep=None, engine="python", **options)
+    blank_header_columns = [column for column in dataframe.columns if str(column).startswith("Unnamed:")]
+    # Pandas labels blank CSV headers as Unnamed; only named fields are selectable columns.
+    return dataframe.drop(columns=blank_header_columns)
+
+
 class StorageService:
     root_path: Path
 
@@ -68,7 +75,7 @@ class StorageService:
 
         suffix = resolved_path.suffix.lower()
         if suffix == ".csv":
-            return pd.read_csv(resolved_path)
+            return read_csv_dataset(resolved_path)
         if suffix == ".json":
             return pd.read_json(resolved_path)
         if suffix == ".xlsx":
@@ -359,7 +366,7 @@ class StorageService:
     def _read_dataset_metadata(self, file_bytes: bytes, suffix: str) -> dict[str, Any]:
         try:
             if suffix == ".csv":
-                df = pd.read_csv(io.BytesIO(file_bytes), nrows=100)
+                df = read_csv_dataset(io.BytesIO(file_bytes), nrows=100)
                 return {
                     "row_count": max(int(len(df)), 0),
                     "column_count": int(len(df.columns)),
