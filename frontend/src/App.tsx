@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import axios, { AxiosError } from 'axios';
 import { BarChart3, Code2, Database, Download, FolderKanban, Layers3, LogOut, Play, Save, Search, ShieldCheck, Sparkles, Upload, Wand2 } from 'lucide-react';
 import { BrowserRouter, NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 type User = {
   id: string;
@@ -67,6 +68,34 @@ type CodeExecutionResult = {
   version_number: number;
 };
 
+type DatasetPreview = {
+  columns: string[];
+  rows: Array<Record<string, unknown>>;
+  total_rows: number;
+  limit: number;
+};
+
+type ColumnAnalytics = {
+  name: string;
+  dtype: string;
+  null_count: number;
+  non_null_count: number;
+  missing_ratio: number;
+  quality_score: number;
+};
+
+type DatasetAnalytics = {
+  row_count: number;
+  column_count: number;
+  missing_values_total: number;
+  duplicate_rows: number;
+  completeness_ratio: number;
+  duplicate_ratio: number;
+  quality_score: number;
+  quality_grade: string;
+  columns: ColumnAnalytics[];
+};
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
 const TOKEN_KEY = 'mavuflow-studio-token';
 const REFRESH_TOKEN_KEY = 'mavuflow-studio-refresh-token';
@@ -116,6 +145,86 @@ function getErrorMessage(error: unknown, fallback: string): string {
     return detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join('; ') || fallback;
   }
   return fallback;
+}
+
+function useDatasetPreview(datasetId: string) {
+  // Keep the initial table and header suggestions synchronized with the active dataset.
+  const [preview, setPreview] = useState<DatasetPreview | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
+
+  useEffect(() => {
+    if (!datasetId) {
+      setPreview(null);
+      setLoading(false);
+      setError('');
+      return;
+    }
+
+    let active = true;
+    setPreview(null);
+    setLoading(true);
+    setError('');
+    api.get(`/datasets/${datasetId}/preview?limit=50`)
+      .then((response) => {
+        if (active) setPreview(response.data as DatasetPreview);
+      })
+      .catch((requestError: unknown) => {
+        if (active) setError(getErrorMessage(requestError, 'Unable to load this dataset preview.'));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [datasetId, revision]);
+
+  return { preview, loading, error, reload: () => setRevision((current) => current + 1) };
+}
+
+function formatPreviewValue(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function DatasetPreviewTable({ preview, loading, error }: { preview: DatasetPreview | null; loading: boolean; error: string }) {
+  return (
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-live="polite">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-4">
+        <div>
+          <h2 className="font-semibold text-slate-900">Dataset preview</h2>
+          <p className="mt-1 text-sm text-slate-500">{preview ? `${preview.total_rows.toLocaleString()} rows · ${preview.columns.length} columns` : 'Live preview of the selected dataset'}</p>
+        </div>
+        {preview ? <span className="text-xs text-slate-500">Showing {preview.rows.length} rows</span> : null}
+      </div>
+      {error ? <p className="px-5 py-4 text-sm text-red-700">{error}</p> : null}
+      {loading ? <p className="px-5 py-8 text-sm text-slate-500">Loading dataset preview…</p> : null}
+      {!loading && !error && !preview ? <p className="px-5 py-8 text-sm text-slate-500">Choose a dataset to see its rows.</p> : null}
+      {!loading && !error && preview ? (
+        <div className="max-h-[28rem] overflow-auto">
+          {preview.columns.length ? (
+            <table className="min-w-full border-separate border-spacing-0 text-left text-sm">
+              <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase text-slate-600">
+                <tr>{preview.columns.map((columnName) => <th key={columnName} className="whitespace-nowrap border-b border-slate-200 px-4 py-3 font-semibold">{columnName}</th>)}</tr>
+              </thead>
+              <tbody>
+                {preview.rows.map((row, rowIndex) => (
+                  <tr key={rowIndex} className="odd:bg-white even:bg-slate-50/70">
+                    {preview.columns.map((columnName) => (
+                      <td key={columnName} className="max-w-xs border-b border-slate-100 px-4 py-3 text-slate-700"><span className="block break-words">{formatPreviewValue(row[columnName])}</span></td>
+                    ))}
+                  </tr>
+                ))}
+                {!preview.rows.length ? <tr><td colSpan={preview.columns.length} className="px-4 py-8 text-center text-slate-500">This dataset has no rows.</td></tr> : null}
+              </tbody>
+            </table>
+          ) : <p className="px-5 py-8 text-sm text-slate-500">This dataset has no columns.</p>}
+        </div>
+      ) : null}
+    </section>
+  );
 }
 
 const readSession = (): Session | null => {
@@ -215,16 +324,16 @@ function AuthenticatedApp({ session, onLogout }: { session: Session; onLogout: (
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800">
-      <aside className="fixed left-0 top-0 h-full w-72 border-r border-slate-200 bg-slate-900 text-slate-100">
-        <div className="px-6 py-5 text-2xl font-semibold">MavuFlow Studio</div>
-        <div className="px-6 pb-4 text-base font-bold text-white">{session.user.full_name || session.user.email}</div>
-        <nav className="space-y-2 px-4 py-4">
+      <aside className="relative z-20 w-full border-b border-slate-700 bg-slate-900 text-slate-100 md:fixed md:left-0 md:top-0 md:h-full md:w-72 md:border-b-0 md:border-r md:border-slate-200">
+        <div className="px-4 py-3 text-xl font-semibold md:px-6 md:py-5 md:text-2xl">MavuFlow Studio</div>
+        <div className="px-4 pb-2 text-sm font-bold text-white md:px-6 md:pb-4 md:text-base">{session.user.full_name || session.user.email}</div>
+        <nav className="flex gap-1 overflow-x-auto px-3 py-2 md:block md:space-y-2 md:px-4 md:py-4">
           {navigation.map(({ label, path }) => (
             <NavLink
               key={label}
               to={path}
               className={({ isActive }) =>
-                `flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition ${
+                `flex w-auto shrink-0 items-center whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm transition md:w-full ${
                   isActive ? 'bg-slate-800 text-white' : 'text-slate-200 hover:bg-slate-800'
                 }`
               }
@@ -234,7 +343,7 @@ function AuthenticatedApp({ session, onLogout }: { session: Session; onLogout: (
           ))}
         </nav>
         <button
-          className="mx-4 mt-4 flex w-[calc(100%-2rem)] items-center justify-center rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-700"
+          className="mx-4 my-2 flex w-[calc(100%-2rem)] items-center justify-center rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-700 md:mt-4"
           onClick={() => {
             onLogout();
             navigate('/login');
@@ -244,7 +353,7 @@ function AuthenticatedApp({ session, onLogout }: { session: Session; onLogout: (
         </button>
       </aside>
 
-      <main className="ml-72 p-8">
+      <main className="min-w-0 ml-0 p-4 md:ml-72 md:p-8">
         <Routes>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
@@ -440,6 +549,10 @@ function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [datasetId, setDatasetId] = useState('');
+  const [analytics, setAnalytics] = useState<DatasetAnalytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState('');
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -450,7 +563,9 @@ function DashboardPage() {
           api.get('/pipelines'),
         ]);
         setProjects(projectResponse.data ?? []);
-        setDatasets(datasetResponse.data ?? []);
+        const datasetList = (datasetResponse.data ?? []) as Dataset[];
+        setDatasets(datasetList);
+        setDatasetId((current) => current || datasetList[0]?.id || '');
         setPipelines(pipelineResponse.data ?? []);
       } catch {
         setProjects([]);
@@ -462,77 +577,127 @@ function DashboardPage() {
     fetchSummary();
   }, []);
 
+  useEffect(() => {
+    if (!datasetId) {
+      setAnalytics(null);
+      return;
+    }
+    // Refresh KPIs and charts whenever the reporting dataset changes.
+    let active = true;
+    setAnalytics(null);
+    setAnalyticsLoading(true);
+    setAnalyticsError('');
+    api.get(`/datasets/${datasetId}/analytics`)
+      .then((response) => {
+        if (active) setAnalytics(response.data as DatasetAnalytics);
+      })
+      .catch((requestError: unknown) => {
+        if (active) setAnalyticsError(getErrorMessage(requestError, 'Unable to load this dataset\'s analytics.'));
+      })
+      .finally(() => {
+        if (active) setAnalyticsLoading(false);
+      });
+    return () => { active = false; };
+  }, [datasetId]);
+
   const stats = useMemo(
     () => [
       { label: 'Projects', value: String(projects.length), icon: FolderKanban },
       { label: 'Datasets', value: String(datasets.length), icon: Database },
       { label: 'Pipelines', value: String(pipelines.length), icon: Layers3 },
-      { label: 'Quality Score', value: `${datasets.length > 0 ? '92%' : '—'}`, icon: ShieldCheck },
+      { label: 'Rows', value: analytics?.row_count.toLocaleString() ?? '—', icon: BarChart3 },
+      { label: 'Missing cells', value: analytics?.missing_values_total.toLocaleString() ?? '—', icon: Sparkles },
+      { label: 'Quality score', value: analytics ? `${analytics.quality_score}%` : '—', icon: ShieldCheck },
     ],
-    [datasets.length, pipelines.length, projects.length],
+    [analytics, datasets.length, pipelines.length, projects.length],
   );
 
-  const activities = [
-    'Uploaded customer churn dataset',
-    'Cleaned duplicate billing rows',
-    'Executed revenue transformation pipeline',
-    'Exported quality summary to Excel',
+  const weakestColumns = useMemo(
+    () => (analytics?.columns ?? []).slice().sort((left, right) => left.quality_score - right.quality_score).slice(0, 8),
+    [analytics],
+  );
+  const totalCells = (analytics?.row_count ?? 0) * (analytics?.column_count ?? 0);
+  const completenessData = [
+    { name: 'Complete', value: Math.max(0, totalCells - (analytics?.missing_values_total ?? 0)) },
+    { name: 'Missing', value: analytics?.missing_values_total ?? 0 },
   ];
 
   return (
     <>
-      <header className="mb-8 flex items-center justify-between">
+      <header className="mb-7 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Overview</p>
-          <h1 className="text-3xl font-bold">Operations Dashboard</h1>
+          <p className="text-sm font-medium uppercase text-emerald-700">Workspace intelligence</p>
+          <h1 className="mt-1 text-3xl font-bold text-slate-950">Operations dashboard</h1>
         </div>
-        <button
-          onClick={() => window.location.assign('/projects')}
-          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-brand-700"
-        >
-          New project
-        </button>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label htmlFor="dashboard-dataset" className="mb-1.5 block text-xs font-semibold uppercase text-slate-500">Reporting dataset</label>
+            <select id="dashboard-dataset" value={datasetId} onChange={(event) => setDatasetId(event.target.value)} className="min-w-56 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800">
+              <option value="">Select a dataset</option>
+              {datasets.map((dataset) => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}
+            </select>
+          </div>
+          <button onClick={() => window.location.assign('/projects')} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">New project</button>
+        </div>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         {stats.map(({ label, value, icon: Icon }) => (
-          <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
+          <div key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-sm text-slate-500">{label}</span>
-              <Icon className="h-5 w-5 text-brand-600" />
+              <Icon className="h-4 w-4 shrink-0 text-emerald-700" />
             </div>
-            <div className="text-3xl font-bold">{value}</div>
+            <div className="mt-3 text-2xl font-bold tabular-nums text-slate-950">{value}</div>
           </div>
         ))}
       </section>
 
-      <section className="mt-8 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Processing Summary</h2>
-            <BarChart3 className="h-5 w-5 text-brand-600" />
+      {analyticsError ? <p className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{analyticsError}</p> : null}
+      <section className="mt-5 grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+        <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-semibold text-slate-900">Column quality</h2>
+              <p className="mt-1 text-sm text-slate-500">Completeness score by column · weakest first</p>
+            </div>
+            <BarChart3 className="h-5 w-5 shrink-0 text-emerald-700" />
           </div>
-          <div className="flex h-64 items-end gap-4">
-            {[40, 70, 55, 85, 90, 68, 76].map((value, index) => (
-              <div key={index} className="flex-1">
-                <div className="rounded-t-xl bg-gradient-to-t from-brand-700 to-brand-500" style={{ height: `${value}%` }} />
-              </div>
-            ))}
-          </div>
+          {analyticsLoading ? <p className="py-16 text-center text-sm text-slate-500">Loading analytics…</p> : analytics && weakestColumns.length ? (
+            <ResponsiveContainer width="100%" height={Math.max(250, weakestColumns.length * 42)}>
+              <BarChart data={weakestColumns} layout="vertical" margin={{ top: 4, right: 20, bottom: 4, left: 8 }}>
+                <CartesianGrid stroke="#e2e8f0" horizontal={false} />
+                <XAxis type="number" domain={[0, 100]} tickFormatter={(value: number) => `${value}%`} tick={{ fill: '#64748b', fontSize: 12 }} />
+                <YAxis type="category" dataKey="name" width={120} tick={{ fill: '#334155', fontSize: 12 }} />
+                <Tooltip formatter={(value) => [`${value}%`, 'Completeness']} />
+                <Bar dataKey="quality_score" fill="#13836b" radius={[0, 4, 4, 0]} barSize={18} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <p className="py-16 text-center text-sm text-slate-500">Select a dataset with columns to view quality scores.</p>}
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Recent activity</h2>
-            <Sparkles className="h-5 w-5 text-brand-600" />
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5">
+            <h2 className="font-semibold text-slate-900">Completeness</h2>
+            <p className="mt-1 text-sm text-slate-500">Present versus missing cells</p>
           </div>
-          <ul className="space-y-3 text-sm text-slate-600">
-            {activities.map((item) => (
-              <li key={item} className="rounded-lg bg-slate-50 px-3 py-2">
-                {item}
-              </li>
-            ))}
-          </ul>
+          {analyticsLoading ? <p className="py-16 text-center text-sm text-slate-500">Loading analytics…</p> : analytics && totalCells > 0 ? (
+            <div className="relative h-[17rem]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={completenessData} dataKey="value" nameKey="name" innerRadius={66} outerRadius={96} paddingAngle={2} stroke="none">
+                    <Cell fill="#13836b" /><Cell fill="#e67555" />
+                  </Pie>
+                  <Tooltip />
+                  <Legend verticalAlign="bottom" height={32} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-x-0 top-[5.4rem] text-center">
+                <div className="text-3xl font-bold tabular-nums text-slate-950">{Math.round(analytics.completeness_ratio * 100)}%</div>
+                <div className="mt-1 text-xs text-slate-500">complete</div>
+              </div>
+            </div>
+          ) : <p className="py-16 text-center text-sm text-slate-500">Upload a dataset to see completeness.</p>}
         </div>
       </section>
     </>
@@ -750,63 +915,107 @@ function DatasetsPage() {
 function DataCleaningPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [datasetId, setDatasetId] = useState('');
-  const [column, setColumn] = useState('customer');
+  const [operationType, setOperationType] = useState<'trim_whitespace' | 'lowercase' | 'uppercase' | 'fill_missing' | 'drop_nulls'>('trim_whitespace');
+  const [column, setColumn] = useState('');
+  const [fillValue, setFillValue] = useState('');
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const { preview, loading, error: previewError, reload } = useDatasetPreview(datasetId);
+  const columns = preview?.columns ?? [];
 
   useEffect(() => {
-    const load = async () => {
-      const response = await api.get('/datasets');
-      const list = response.data ?? [];
-      setDatasets(list);
-      if (list[0]) setDatasetId(list[0].id);
-    };
-    void load();
+    let active = true;
+    api.get('/datasets')
+      .then((response) => {
+        if (!active) return;
+        const list = (response.data ?? []) as Dataset[];
+        setDatasets(list);
+        setDatasetId((current) => current || list[0]?.id || '');
+      })
+      .catch((requestError: unknown) => {
+        if (active) setError(getErrorMessage(requestError, 'Unable to load datasets.'));
+      });
+    return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!columns.includes(column)) setColumn(columns[0] ?? '');
+  }, [datasetId, columns.join('\0'), column]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const response = await api.post(`/datasets/${datasetId}/clean`, {
-      operations: [{ type: 'trim_whitespace', column }],
-    });
-    setResult(response.data ?? null);
+    if (!datasetId || !column) {
+      setError('Select a dataset and one of its columns first.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+    try {
+      // Submit one supported cleaning operation using the selected file header.
+      const operation = operationType === 'fill_missing'
+        ? { type: operationType, column, value: fillValue }
+        : { type: operationType, column };
+      const response = await api.post(`/datasets/${datasetId}/clean`, { operations: [operation] });
+      setResult(response.data ?? null);
+      reload();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, 'The cleaning operation could not be completed.'));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="space-y-6">
       <header>
-        <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Preparation</p>
-        <h1 className="text-3xl font-bold">Data Cleaning</h1>
+        <p className="text-sm font-medium uppercase text-emerald-700">Preparation</p>
+        <h1 className="mt-1 text-3xl font-bold text-slate-950">Data cleaning</h1>
+        <p className="mt-2 text-sm text-slate-600">Preview your data, choose a column from its headers, and apply a cleaning operation.</p>
       </header>
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_1fr_1fr_1fr_auto] xl:items-end">
           <div>
-            <label className="mb-2 block text-sm font-medium">Dataset</label>
-            <select value={datasetId} onChange={(e) => setDatasetId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <label htmlFor="clean-dataset" className="mb-2 block text-sm font-medium">Dataset</label>
+            <select id="clean-dataset" value={datasetId} onChange={(event) => { setDatasetId(event.target.value); setResult(null); setError(''); }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm" disabled={!datasets.length}>
+              <option value="">Select a dataset</option>
               {datasets.map((dataset) => (
                 <option key={dataset.id} value={dataset.id}>{dataset.name}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium">Column</label>
-            <input value={column} onChange={(e) => setColumn(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2" placeholder="customer" />
+            <label htmlFor="clean-operation" className="mb-2 block text-sm font-medium">Operation</label>
+            <select id="clean-operation" value={operationType} onChange={(event) => setOperationType(event.target.value as typeof operationType)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm">
+              <option value="trim_whitespace">Trim whitespace</option>
+              <option value="lowercase">Convert to lowercase</option>
+              <option value="uppercase">Convert to uppercase</option>
+              <option value="fill_missing">Fill missing values</option>
+              <option value="drop_nulls">Drop rows with missing values</option>
+            </select>
           </div>
-          <button type="submit" className="rounded-xl bg-brand-600 px-4 py-3 font-medium text-white hover:bg-brand-700">
-            Run cleaning
+          <div>
+            <label htmlFor="clean-column" className="mb-2 block text-sm font-medium">Column</label>
+            <select id="clean-column" value={column} onChange={(event) => setColumn(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm" disabled={!columns.length}>
+              <option value="">{columns.length ? 'Select a column' : 'No columns available'}</option>
+              {columns.map((columnName) => <option key={columnName} value={columnName}>{columnName}</option>)}
+            </select>
+          </div>
+          {operationType === 'fill_missing' ? (
+            <div>
+              <label htmlFor="clean-fill-value" className="mb-2 block text-sm font-medium">Replacement value</label>
+              <input id="clean-fill-value" value={fillValue} onChange={(event) => setFillValue(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Enter a value" />
+            </div>
+          ) : null}
+          <button type="submit" disabled={submitting || !datasetId || !column} className="flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
+            <Wand2 className="h-4 w-4" /> {submitting ? 'Applying…' : 'Apply cleaning'}
           </button>
         </form>
-      </div>
-
-      {result ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold">Cleaning result</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase text-slate-500">Status</div><div className="mt-1 font-semibold">{String(result.status ?? 'cleaned')}</div></div>
-            <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase text-slate-500">Rows</div><div className="mt-1 font-semibold">{String(result.row_count ?? 0)}</div></div>
-            <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase text-slate-500">Columns</div><div className="mt-1 font-semibold">{String(result.column_count ?? 0)}</div></div>
-          </div>
-        </div>
-      ) : null}
+        {error ? <p className="mt-4 text-sm text-red-700" role="alert">{error}</p> : null}
+        {result ? <p className="mt-4 text-sm font-medium text-emerald-800" role="status">Cleaning applied. {String(result.row_count ?? 0)} rows remain.</p> : null}
+      </section>
+      <DatasetPreviewTable preview={preview} loading={loading} error={previewError} />
     </div>
   );
 }
@@ -814,69 +1023,161 @@ function DataCleaningPage() {
 function TransformationsPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [datasetId, setDatasetId] = useState('');
-  const [mapping, setMapping] = useState('customer=customer_name');
+  const [operationType, setOperationType] = useState<'rename_columns' | 'compute_column' | 'add_column' | 'drop_columns'>('rename_columns');
+  const [sourceColumn, setSourceColumn] = useState('');
+  const [targetColumn, setTargetColumn] = useState('');
+  const [operator, setOperator] = useState<'+' | '-' | '*' | '/'>('*');
+  const [operand, setOperand] = useState('1');
+  const [constantValue, setConstantValue] = useState('0');
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const { preview, loading, error: previewError, reload } = useDatasetPreview(datasetId);
+  const columns = preview?.columns ?? [];
 
   useEffect(() => {
-    const load = async () => {
-      const response = await api.get('/datasets');
-      const list = response.data ?? [];
-      setDatasets(list);
-      if (list[0]) setDatasetId(list[0].id);
-    };
-    void load();
+    let active = true;
+    api.get('/datasets')
+      .then((response) => {
+        if (!active) return;
+        const list = (response.data ?? []) as Dataset[];
+        setDatasets(list);
+        setDatasetId((current) => current || list[0]?.id || '');
+      })
+      .catch((requestError: unknown) => {
+        if (active) setError(getErrorMessage(requestError, 'Unable to load datasets.'));
+      });
+    return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!columns.includes(sourceColumn)) setSourceColumn(columns[0] ?? '');
+  }, [datasetId, columns.join('\0'), sourceColumn]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const mappingObject: Record<string, string> = {};
-    for (const part of mapping.split(',')) {
-      const [from, to] = part.split('=').map((value) => value.trim());
-      if (from && to) mappingObject[from] = to;
+    const trimmedTarget = targetColumn.trim();
+    const needsSource = operationType !== 'add_column';
+    if (!datasetId || (needsSource && !sourceColumn)) {
+      setError('Select a dataset and a source column from its headers.');
+      return;
     }
 
-    const response = await api.post(`/datasets/${datasetId}/transform`, {
-      operations: [{ type: 'rename_columns', mapping: mappingObject }],
-    });
-    setResult(response.data ?? null);
+    let operation: Record<string, unknown>;
+    if (operationType === 'drop_columns') {
+      operation = { type: operationType, columns: [sourceColumn] };
+    } else {
+      if (!trimmedTarget) {
+        setError('Enter a name for the output column.');
+        return;
+      }
+      if (operationType === 'rename_columns' && columns.includes(trimmedTarget) && trimmedTarget !== sourceColumn) {
+        setError('That column name already exists in this dataset.');
+        return;
+      }
+      if ((operationType === 'compute_column' || operationType === 'add_column') && columns.includes(trimmedTarget)) {
+        setError('Choose an output name that is not already in this dataset.');
+        return;
+      }
+      if (operationType === 'rename_columns') {
+        operation = { type: operationType, mapping: { [sourceColumn]: trimmedTarget } };
+      } else if (operationType === 'compute_column') {
+        const numericOperand = Number(operand);
+        if (!Number.isFinite(numericOperand)) {
+          setError('Enter a valid numeric value for the calculation.');
+          return;
+        }
+        const expressionColumn = /^[A-Za-z_]\w*$/.test(sourceColumn) ? sourceColumn : `\`${sourceColumn.replace(/`/g, '')}\``;
+        operation = { type: operationType, column: trimmedTarget, expression: `${expressionColumn} ${operator} ${numericOperand}` };
+      } else {
+        operation = { type: operationType, column: trimmedTarget, value: constantValue };
+      }
+    }
+
+    setSubmitting(true);
+    setError('');
+    try {
+      // Send the selected transformation with source columns taken from this dataset.
+      const response = await api.post(`/datasets/${datasetId}/transform`, { operations: [operation] });
+      setResult(response.data ?? null);
+      reload();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, 'The transformation could not be completed.'));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="space-y-6">
       <header>
-        <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Transformation</p>
-        <h1 className="text-3xl font-bold">Transformations</h1>
+        <p className="text-sm font-medium uppercase text-emerald-700">Shaping</p>
+        <h1 className="mt-1 text-3xl font-bold text-slate-950">Transformations</h1>
+        <p className="mt-2 text-sm text-slate-600">Rename, calculate, add, or remove columns using the selected dataset’s actual headers.</p>
       </header>
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-[1fr_1.2fr_auto] md:items-end">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:items-end">
           <div>
-            <label className="mb-2 block text-sm font-medium">Dataset</label>
-            <select value={datasetId} onChange={(e) => setDatasetId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <label htmlFor="transform-dataset" className="mb-2 block text-sm font-medium">Dataset</label>
+            <select id="transform-dataset" value={datasetId} onChange={(event) => { setDatasetId(event.target.value); setResult(null); setError(''); }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm" disabled={!datasets.length}>
+              <option value="">Select a dataset</option>
               {datasets.map((dataset) => (
                 <option key={dataset.id} value={dataset.id}>{dataset.name}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium">Rename mapping</label>
-            <input value={mapping} onChange={(e) => setMapping(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2" placeholder="customer=customer_name" />
+            <label htmlFor="transform-operation" className="mb-2 block text-sm font-medium">Operation</label>
+            <select id="transform-operation" value={operationType} onChange={(event) => { setOperationType(event.target.value as typeof operationType); setError(''); }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm">
+              <option value="rename_columns">Rename a column</option>
+              <option value="compute_column">Calculate a new column</option>
+              <option value="add_column">Add a constant column</option>
+              <option value="drop_columns">Drop a column</option>
+            </select>
           </div>
-          <button type="submit" className="flex items-center justify-center rounded-xl bg-brand-600 px-4 py-3 font-medium text-white hover:bg-brand-700">
-            <Wand2 className="mr-2 h-4 w-4" /> Run transform
+          {operationType !== 'add_column' ? (
+            <div>
+              <label htmlFor="transform-source" className="mb-2 block text-sm font-medium">Source column</label>
+              <select id="transform-source" value={sourceColumn} onChange={(event) => setSourceColumn(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm" disabled={!columns.length}>
+                <option value="">{columns.length ? 'Select a column' : 'No columns available'}</option>
+                {columns.map((columnName) => <option key={columnName} value={columnName}>{columnName}</option>)}
+              </select>
+            </div>
+          ) : null}
+          {operationType === 'rename_columns' || operationType === 'compute_column' || operationType === 'add_column' ? (
+            <div>
+              <label htmlFor="transform-target" className="mb-2 block text-sm font-medium">{operationType === 'rename_columns' ? 'New column name' : 'Output column name'}</label>
+              <input id="transform-target" value={targetColumn} onChange={(event) => setTargetColumn(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm" placeholder="Enter a column name" />
+            </div>
+          ) : null}
+          {operationType === 'compute_column' ? (
+            <div className="grid grid-cols-[1fr_1.3fr] gap-3">
+              <div>
+                <label htmlFor="transform-operator" className="mb-2 block text-sm font-medium">Calculation</label>
+                <select id="transform-operator" value={operator} onChange={(event) => setOperator(event.target.value as typeof operator)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm">
+                  <option value="*">Multiply</option><option value="+">Add</option><option value="-">Subtract</option><option value="/">Divide</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="transform-operand" className="mb-2 block text-sm font-medium">Number</label>
+                <input id="transform-operand" type="number" step="any" value={operand} onChange={(event) => setOperand(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm" />
+              </div>
+            </div>
+          ) : null}
+          {operationType === 'add_column' ? (
+            <div>
+              <label htmlFor="transform-value" className="mb-2 block text-sm font-medium">Value for every row</label>
+              <input id="transform-value" value={constantValue} onChange={(event) => setConstantValue(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm" />
+            </div>
+          ) : null}
+          <button type="submit" disabled={submitting || !datasetId || (operationType !== 'add_column' && !sourceColumn)} className="flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
+            <Wand2 className="h-4 w-4" /> {submitting ? 'Applying…' : 'Apply transformation'}
           </button>
         </form>
-      </div>
-
-      {result ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold">Transformation output</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase text-slate-500">Status</div><div className="mt-1 font-semibold">{String(result.status ?? 'transformed')}</div></div>
-            <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase text-slate-500">Rows</div><div className="mt-1 font-semibold">{String(result.row_count ?? 0)}</div></div>
-            <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs uppercase text-slate-500">Columns</div><div className="mt-1 font-semibold">{String(result.column_count ?? 0)}</div></div>
-          </div>
-        </div>
-      ) : null}
+        {error ? <p className="mt-4 text-sm text-red-700" role="alert">{error}</p> : null}
+        {result ? <p className="mt-4 text-sm font-medium text-emerald-800" role="status">Transformation applied. {String(result.row_count ?? 0)} rows · {String(result.column_count ?? 0)} columns.</p> : null}
+      </section>
+      <DatasetPreviewTable preview={preview} loading={loading} error={previewError} />
     </div>
   );
 }

@@ -9,6 +9,8 @@ from uuid import uuid4
 import numpy as np
 import pandas as pd
 
+from app.services.storage_service import read_csv_dataset
+
 from app.core.config import settings
 
 MAX_CODE_LENGTH = 12_000
@@ -273,7 +275,7 @@ class CodeExecutionService:
             raise FileNotFoundError(f"Dataset file not found: {storage_key}")
         suffix = resolved_path.suffix.lower()
         if suffix == ".csv":
-            return pd.read_csv(resolved_path)
+            return read_csv_dataset(resolved_path)
         if suffix == ".xlsx":
             return pd.read_excel(resolved_path)
         raise ValueError(f"Unsupported dataset file type: {suffix}")
