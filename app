@@ -176,3 +176,4 @@ Commit #174 | Meme: Works on my machine! ¯\_(ツ)_/¯
 Commit #175 | Meme: My code doesn't work, I have no idea why. My code works, I have no idea why.
 Commit #176 | Meme: A QA engineer walks into a bar. Orders a beer. Orders 0 beers. Orders 999999999 beers. Orders a lizard.
 Commit #177 | Meme: My code doesn't work, I have no idea why. My code works, I have no idea why.
+Commit #178 | Meme: Hide and seek champion since 1958: ';' in C/C++
