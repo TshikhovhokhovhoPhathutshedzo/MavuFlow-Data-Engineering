@@ -108,3 +108,4 @@ Commit #106 | Meme: There's no place like 127.0.0.1
 Commit #107 | Meme: My code doesn't work, I have no idea why. My code works, I have no idea why.
 Commit #108 | Meme: git commit -m 'fixed stuff' (narrator: it was not fixed)
 Commit #109 | Meme: To understand recursion, you must first understand recursion.
+Commit #110 | Meme: Hide and seek champion since 1958: ';' in C/C++
