@@ -167,3 +167,4 @@ Commit #165 | Meme: In case of fire: git commit, git push, leave building.
 Commit #166 | Meme: In case of fire: git commit, git push, leave building.
 Commit #167 | Meme: Deleting code is better than writing code.
 Commit #168 | Meme: There are 10 types of people: those who understand binary, and those who don't.
+Commit #169 | Meme: Real programmers count from 0.
