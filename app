@@ -98,3 +98,4 @@ Commit #96 | Meme: Software and cathedrals are much the same – first we build 
 Commit #97 | Meme: A QA engineer walks into a bar. Orders a beer. Orders 0 beers. Orders 999999999 beers. Orders a lizard.
 Commit #98 | Meme: 99 little bugs in the code. Take one down, patch it around. 127 little bugs in the code.
 Commit #99 | Meme: It's not a bug, it's an undocumented feature.
+Commit #100 | Meme: Why do Java developers wear glasses? Because they don't C#.
